@@ -25,17 +25,16 @@ import {
   Select,
 } from "@mui/material";
 
-function Editor({ socket, roomId, onCodeChange }) {
+function Editor({ onCodeChange }) {
   const editorRef = useRef(null);
   const textareaRef = useRef(null);
   const code = useRef("");
   const [open, setOpen] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState("javascript");
+  const [output, setOutput] = useState("Your code output comes here...");
 
-  const [output, setOutput] = useState("your code output comes here...");
   useEffect(() => {
     if (editorRef.current) {
-      // If editor already exists, don't reinitialize
       return;
     }
 
@@ -49,102 +48,45 @@ function Editor({ socket, roomId, onCodeChange }) {
         lineNumbers: true,
       });
 
-      // Set size after initialization
       editorRef.current.setSize("100%", "h-full");
-      editorRef.current.setValue(CODE_SNIPPETS[selectedLanguage]);
-      code.current = CODE_SNIPPETS[selectedLanguage];
 
-      // Set up change handler
-      editorRef.current.on("change", (instance, changes) => {
-        const { origin } = changes;
-        if (origin !== "setValue") {
-          const currentCode = instance.getValue();
-          code.current = currentCode;
-          console.log(currentCode);
-          onCodeChange(currentCode);
-          socket.emit("code:change", { roomId, code: currentCode });
-        }
+      // Load user-specific code from local storage
+      const savedCode = localStorage.getItem("userCode") || CODE_SNIPPETS[selectedLanguage];
+      editorRef.current.setValue(savedCode);
+      code.current = savedCode;
+
+      editorRef.current.on("change", (instance) => {
+        const currentCode = instance.getValue();
+        code.current = currentCode;
+        onCodeChange(currentCode);
+
+        // Save user-specific code in local storage
+        localStorage.setItem("userCode", currentCode);
       });
     }
 
     init();
 
-    // Cleanup function
     return () => {
       if (editorRef.current) {
         editorRef.current.toTextArea();
         editorRef.current = null;
       }
     };
-  }, []); // Empty dependency array since we want to initialize only once
+  }, []);
 
-  // Separate useEffect for socket event listeners
-  useEffect(() => {
-    const handleCodeChange = ({ code }) => {
-      if (editorRef.current && code) {
-        editorRef.current.setValue(code);
-      }
-    };
-
-    const handleDisconnect = ({ socketId, email }) => {
-      toast.success(`${email} disconnected`);
-    };
-
-    socket.on("output", ({ output }) => {
-      setOutput(output);
-    });
-
-    // Set up socket listeners
-    socket.on("code:change", handleCodeChange);
-    socket.on("disconnected", handleDisconnect);
-
-    // Cleanup socket listeners
-    return () => {
-      socket.off("code:change", handleCodeChange);
-      socket.off("disconnected", handleDisconnect);
-      socket.off("output");
-    };
-  }, [socket]);
   const handleExecuteCode = async () => {
     try {
       const result = await executeCode({
         language: selectedLanguage,
         sourceCode: code.current,
       });
-      console.log("Execution result:", result);
-      //setting output
       setOutput(result.run.output);
-      socket.emit("output", {
-        roomId,
-        output: result.run.output,
-      });
-
-      // Handle the result (maybe show it in the UI)
     } catch (error) {
       toast.error("Failed to execute code: " + error.message);
       setOutput(error.message);
-      socket.emit("output", {
-        roomId,
-        output: error.message,
-      });
     }
   };
-
-  useEffect(() => {
-    socket.emit("output", { roomId, output });
-    const handleLanguageChange = ({ language, snippet }) => {
-      console.log(snippet)
-      if (LANGUAGE_MODES[language]) {
-        setSelectedLanguage(language);
-        editorRef.current.setOption("mode", LANGUAGE_MODES[language]);
-        editorRef.current.setValue(snippet);
-        code.current = snippet;
-        console.log(snippet)
-      }
-    };
-
-    socket.on("language:change", handleLanguageChange);
-  }, [output]);
 
   const handleClickOpen = () => {
     setOpen(true);
@@ -163,24 +105,12 @@ function Editor({ socket, roomId, onCodeChange }) {
       editorRef.current.setOption("mode", mode);
       editorRef.current.setValue(CODE_SNIPPETS[language]);
       code.current = CODE_SNIPPETS[language];
-      console.log("Mode set to:", mode);
-      socket.emit("language:change", {
-        roomId,
-        language,
-        snippet: CODE_SNIPPETS[language],
-      });
-    } else {
-      console.error("Invalid mode for language:", language);
+
+      // Save selected language to local storage
+      localStorage.setItem("selectedLanguage", language);
     }
   };
-  // // Listen for language change events
-  // useEffect(() => {
 
-
-  //   return () => {
-  //     socket.off("language:change", handleLanguageChange);
-  //   };
-  // }, [socket]);
   return (
     <div className="h-full w-full">
       <Toaster />
@@ -196,7 +126,8 @@ function Editor({ socket, roomId, onCodeChange }) {
             border: "#22c55e",
             "&:hover": { backgroundColor: "#22c55f" },
           }}
-          onClick={handleClickOpen}>
+          onClick={handleClickOpen}
+        >
           {selectedLanguage || "Select Language"}
         </Button>
         <Dialog open={open} onClose={handleClose}>
@@ -206,7 +137,8 @@ function Editor({ socket, roomId, onCodeChange }) {
               value={selectedLanguage}
               onChange={handleSelectLanguage}
               displayEmpty
-              fullWidth>
+              fullWidth
+            >
               <MenuItem value="" disabled>
                 Select a language
               </MenuItem>

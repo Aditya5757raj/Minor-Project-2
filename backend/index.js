@@ -9,7 +9,7 @@ app.use(cors());
 app.use(express.static('../client/build'));
 
 app.use((req,res,next)=>{
-  res.sendFile(path.join(__dirname,'../client/build','index.html'))
+  res.sendFile(path.join(__dirname, '..', 'client', 'public', 'index.html'));
 })
 
 const server = http.createServer(app);
@@ -111,4 +111,4 @@ io.on("connection", (socket) => {
 });
 
 const PORT = process.env.PORT || 8000;
-server.listen(PORT, () => console.log(`Listening on port ${PORT}`));
+server.listen(PORT, () => console.log(`Listening on port localhost:${PORT}`));
