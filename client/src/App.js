@@ -1,22 +1,26 @@
-
-import { Routes,Route } from 'react-router-dom';
-import Lobby from './components/Lobby.jsx';
-import Room from './components/Room.jsx';
-
-
+import React from 'react';
+import { Routes, Route } from 'react-router-dom';
+import Home from './pages/Home';
+import Products from './pages/Products';
+import Services from './pages/Services';
+import Lobby from './components/Lobby';
+import Room from './components/Room';
+import Login from './components/Login';  // ✅ Import Login Component
+import Signup from './components/Signup'; // ✅ Import Signup Component
 
 function App() {
   return (
-  <>
-  <div>
-    <Routes>
-      <Route path='/' element = {<Lobby/>}/>
-      <Route path='/room/:roomId/:email' element = {<Room />}/>
-    </Routes>
-
-   
-  </div>
-  </>
+    <>
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/services" element={<Services />} />
+        <Route path="/products" element={<Products />} />
+        <Route path="/lobby" element={<Lobby />} />
+        <Route path="/room/:roomId/:email" element={<Room />} />
+        <Route path="/login" element={<Login />} />  {/* ✅ Add Login Route */}
+        <Route path="/signup" element={<Signup />} /> {/* ✅ Add Signup Route */}
+      </Routes>
+    </>
   );
 }
 

@@ -3,10 +3,72 @@ const express = require("express");
 const app = express();
 const cors = require("cors");
 const http = require('http');
+const bcrypt = require("bcrypt");
 const path = require('path')
+const mysql = require("mysql2/promise");
 app.use(express.json());
 app.use(cors());
 app.use(express.static('../client/build'));
+require("dotenv").config();
+
+const db = mysql.createPool({
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+});
+
+db.getConnection()
+    .then(() => console.log("✅ MySQL Database Connected!"))
+    .catch((err) => console.error("❌ MySQL Connection Error:", err));
+
+// 📝 Signup Route
+app.post("/signup", async (req, res) => {
+  const { email, password } = req.body;
+  try {
+      // Check if user exists
+      const [existingUser] = await db.query("SELECT * FROM users WHERE email = ?", [email]);
+      if (existingUser.length > 0) {
+        return res.status(400).json({ success: false, message: "Email already in use" });
+      }
+
+      // Hash password
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      // Insert user into database
+      await db.query("INSERT INTO users (email, password) VALUES (?, ?)", [email, hashedPassword]);
+
+      res.status(201).json({ success: true, message: "User registered successfully" });
+  } catch (error) {
+      console.error("Signup Error:", error);
+      res.status(500).json({ success: false, message: "Error registering user" });
+  }
+});
+
+// 🔐 Signin Route
+app.post("/signin", async (req, res) => {
+  const { email, password } = req.body;
+  try {
+      // Fetch user from database
+      const [users] = await db.query("SELECT * FROM users WHERE email = ?", [email]);
+      if (users.length === 0) {
+          return res.status(400).json({ success: false, message: "User not found" });
+      }
+
+      const user = users[0];
+
+      // Compare password
+      const isMatch = await bcrypt.compare(password, user.password);
+      if (!isMatch) {
+          return res.status(400).json({ success: false, message: "Invalid credentials" });
+      }
+
+      res.json({ success: true, message: "Login successful", userId: user.id });
+  } catch (error) {
+      console.error("Signin Error:", error);
+      res.status(500).json({ success: false, message: "Error signing in" });
+  }
+});
 
 app.use((req,res,next)=>{
   res.sendFile(path.join(__dirname, '..', 'client', 'public', 'index.html'));
